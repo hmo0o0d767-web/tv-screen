@@ -44,7 +44,6 @@ body {
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   gap: clamp(16px, 2.6vw, 56px);
-  transition: transform 6s ease-in-out;
   position: relative;
   z-index: 1;
   text-shadow: 0 1px 12px rgba(5, 8, 16, .55);
@@ -149,6 +148,29 @@ body {
 .empty { color: var(--ink-dim); font-size: 1.1em; padding: 1em 0; }
 
 .foot { margin-top: auto; color: var(--ink-dim); font-size: .85em; display: flex; flex-direction: column; gap: .25em; }
+
+/* ---------- TV canvas: fixed 1920x1080, scaled to fit by script ---------- */
+html.ready .stage { transition: transform 6s ease-in-out; }
+@media (prefers-reduced-motion: reduce) { html.ready .stage { transition: none; } }
+html.canvas body { overflow: hidden; }
+html.canvas .stage {
+  position: absolute; top: 0; left: 0;
+  width: 1920px; height: 1080px; min-height: 0;
+  transform-origin: 0 0;
+  padding-block: 36px;
+  padding-left: max(68px, env(safe-area-inset-left, 0px));
+  padding-right: max(68px, env(safe-area-inset-right, 0px));
+  gap: 50px;
+  font-size: 22px;
+}
+html.canvas .time { font-size: 182px; }
+html.canvas .next-name { font-size: 88px; }
+html.canvas .next-count { font-size: 54px; }
+html.canvas .prayers { padding-top: 24px; gap: 19px; }
+html.canvas .club { gap: 18px; }
+html.canvas .club-title { font-size: 44px; }
+html.canvas .feature { padding: 30px; }
+html.canvas .f-teams { font-size: 46px; }
 
 /* ---------- narrow screens (phone preview) ---------- */
 @media (max-width: 899px) {
@@ -523,10 +545,30 @@ body {
     if (p.mi !== lastMinute) { lastMinute = p.mi; renderMatches(now); }
   }
 
+  // On a TV-sized screen the layout is a fixed 1920x1080 canvas scaled to fit,
+  // so browser bars or odd TV resolutions never cut off the prayer row.
+  var fitBase = "", driftX = 0, driftY = 0;
+  function applyTransform() {
+    $("stage").style.transform = (fitBase + " translate(" + driftX + "px," + driftY + "px)").trim();
+  }
+  function fit() {
+    var w = window.innerWidth, h = window.innerHeight;
+    var canvas = w >= 900;
+    document.documentElement.classList.toggle("canvas", canvas);
+    if (canvas) {
+      var s = Math.min(w / 1920, h / 1080);
+      fitBase = "translate(" + ((w - 1920 * s) / 2) + "px," + ((h - 1080 * s) / 2) + "px) scale(" + s + ")";
+    } else {
+      fitBase = "";
+    }
+    applyTransform();
+  }
+
   // Small drift every few minutes so static elements don't sit on the same pixels for hours.
   function drift() {
-    var x = Math.round((Math.random() - .5) * 24), y = Math.round((Math.random() - .5) * 16);
-    $("stage").style.transform = "translate(" + x + "px," + y + "px)";
+    driftX = Math.round((Math.random() - .5) * 24);
+    driftY = Math.round((Math.random() - .5) * 16);
+    applyTransform();
   }
 
   // Reload once a day around 3 a.m. Riyadh time to pick up an updated fixture list.
@@ -537,6 +579,9 @@ body {
     }, 60000);
   }
 
+  fit();
+  window.addEventListener("resize", fit);
+  requestAnimationFrame(function () { requestAnimationFrame(function () { document.documentElement.classList.add("ready"); }); });
   tick();
   setInterval(tick, 1000);
   if (!window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setInterval(drift, 180000);
