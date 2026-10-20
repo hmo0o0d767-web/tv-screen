@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>شاشة انتظار المنزل</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700&display=swap">
+<style>
+/* Layout: one TV-sized screen, night-sky ground. Start side = clock + prayers (sand accent), end side = Arsenal fixtures (club red, used only as a marker). Deliberately single dark theme to keep a TV screen dim. */
+:root {
+  --night: #0c1220;        /* ground */
+  --night-2: rgba(16, 22, 38, .72);  /* raised surface, see-through over the scene */
+  --line: #24304a;         /* hairlines */
+  --ink: #e9e4d8;          /* primary text, warm off-white */
+  --ink-dim: #8f97a8;      /* secondary text, blue-grey */
+  --sand: #d8b26a;         /* prayer accent */
+  --sand-soft: rgba(216, 178, 106, .14);
+  --gunner: #d4283c;       /* club red, markers only */
+  --gunner-soft: rgba(212, 40, 60, .16);
+  --f-display: "Alexandria", "Segoe UI", Tahoma, sans-serif;
+  --f-body: "Alexandria", "Segoe UI", Tahoma, Arial, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: clamp(14px, 1.15vw, 26px);
+  overflow: hidden;
+}
+@media (max-width: 899px) { body { overflow: auto; } }
+
+.stage {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding-block: clamp(16px, 3.2vh, 56px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(16px, 2.6vw, 56px);
+  transition: transform 6s ease-in-out;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 12px rgba(5, 8, 16, .55);
+}
+
+/* ---------- background scene: an original Najdi majlis at night ---------- */
+.scene { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--night); }
+.scene svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* Only the lantern layer animates, and only its opacity, so a modest TV GPU can keep up. */
+.scene .glow { animation: flicker 5s ease-in-out infinite; will-change: opacity; }
+@keyframes flicker { 0%, 100% { opacity: .88; } 40% { opacity: 1; } 55% { opacity: .8; } 70% { opacity: .95; } }
+@media (prefers-reduced-motion: reduce) { .scene .glow { animation: none; } }
+@media (min-width: 900px) {
+  .stage { padding-left: max(3.5vw, env(safe-area-inset-left, 0px)); padding-right: max(3.5vw, env(safe-area-inset-right, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { .stage { transition: none; } }
+
+/* ---------- clock ---------- */
+.clock { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; gap: .35em; min-width: 0; }
+.time {
+  font-family: var(--f-body);
+  font-weight: 300;
+  font-size: clamp(64px, 9.5vw, 220px);
+  line-height: .95;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  text-align: right;
+}
+.time .side { display: inline-flex; flex-direction: column; justify-content: space-between; gap: .1em; font-size: .3em; margin-left: .25em; vertical-align: top; padding-top: .35em; line-height: 1; }
+.time .sec { color: var(--ink-dim); }
+.time .ampm { color: var(--sand); font-family: var(--f-display); }
+.dates { display: flex; flex-wrap: wrap; gap: .4em 1.2em; font-size: 1.35em; color: var(--ink-dim); }
+.dates .hijri { color: var(--sand); }
+
+/* ---------- next prayer ---------- */
+.next {
+  grid-column: 1; grid-row: 2; align-self: center;
+  display: flex; flex-direction: column; gap: .3em; min-width: 0;
+}
+.eyebrow { font-size: .95em; letter-spacing: .04em; color: var(--ink-dim); }
+.next-name { font-family: var(--f-display); font-weight: 600; font-size: clamp(36px, 4.6vw, 104px); color: var(--sand); line-height: 1.1; }
+.next-count { font-size: clamp(26px, 2.8vw, 64px); font-weight: 400; font-variant-numeric: tabular-nums; direction: ltr; text-align: right; }
+.next-at { color: var(--ink-dim); font-size: 1.2em; }
+
+/* ---------- prayer row ---------- */
+.prayers {
+  grid-column: 1 / -1; grid-row: 3;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  padding-top: clamp(12px, 2.2vh, 32px);
+  gap: clamp(8px, 1vw, 20px);
+}
+.p { display: flex; flex-direction: column; gap: .2em; padding: .5em .7em; border-radius: 10px; position: relative; }
+.p-name { font-family: var(--f-display); font-weight: 500; font-size: 1.45em; }
+.p-time { font-size: 2.1em; font-weight: 400; font-variant-numeric: tabular-nums; }
+.p.sunrise .p-name, .p.sunrise .p-time { color: var(--ink-dim); }
+.p.past { opacity: .45; }
+.p.is-next { background: var(--sand-soft); }
+.p.is-next .p-name, .p.is-next .p-time { color: var(--sand); }
+.p.is-next::before {
+  content: ""; position: absolute; inset-inline-start: 0; top: 18%; bottom: 18%;
+  width: 3px; border-radius: 2px; background: var(--sand);
+}
+
+/* ---------- Arsenal ---------- */
+.club { grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; gap: clamp(10px, 1.6vh, 24px); min-width: 0; }
+.club-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; }
+.club-title { font-family: var(--f-display); font-weight: 700; font-size: clamp(24px, 2.3vw, 52px); margin: 0; display: flex; align-items: center; gap: .45em; }
+.club-title::before { content: ""; width: .5em; height: .5em; border-radius: 50%; background: var(--gunner); flex: none; }
+.club-note { color: var(--ink-dim); font-size: .9em; }
+
+.feature {
+  background: var(--night-2);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: clamp(14px, 1.6vw, 32px);
+  display: flex; flex-direction: column; gap: .5em;
+}
+.f-comp { display: flex; align-items: center; justify-content: space-between; gap: 1em; color: var(--ink-dim); font-size: 1em; }
+.badge { font-size: .85em; padding: .15em .7em; border-radius: 999px; background: var(--gunner-soft); color: #f1a4ad; white-space: nowrap; }
+.badge.live { background: var(--gunner); color: #fff; }
+.f-teams { font-family: var(--f-display); font-weight: 600; font-size: clamp(24px, 2.4vw, 56px); line-height: 1.2; text-wrap: balance; }
+.f-teams .vs { color: var(--ink-dim); font-weight: 500; font-size: .6em; margin-inline: .3em; }
+.f-when { font-size: 1.25em; }
+.f-count { font-size: 1.15em; color: var(--sand); font-variant-numeric: tabular-nums; }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.row {
+  display: grid; grid-template-columns: 6.6em minmax(0, 1fr) auto; align-items: center;
+  gap: 1em; padding: .65em 0; border-bottom: 1px solid var(--line);
+}
+.row:last-child { border-bottom: 0; }
+.r-date { color: var(--ink-dim); font-size: .95em; line-height: 1.3; }
+.r-date b { display: block; color: var(--ink); font-weight: 500; font-size: 1.1em; }
+.r-match { font-size: 1.2em; min-width: 0; }
+.r-match .ha { font-size: .75em; color: var(--ink-dim); margin-inline-start: .4em; }
+.r-time { font-size: 1.2em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.r-comp { display: block; font-size: .72em; color: var(--ink-dim); }
+.empty { color: var(--ink-dim); font-size: 1.1em; padding: 1em 0; }
+
+.foot { margin-top: auto; color: var(--ink-dim); font-size: .85em; display: flex; flex-direction: column; gap: .25em; }
+
+/* ---------- narrow screens (phone preview) ---------- */
+@media (max-width: 899px) {
+  .stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .clock, .next, .prayers, .club { grid-column: 1; grid-row: auto; }
+  .prayers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  body { font-size: 15px; }
+}
+</style>
+</head>
+<body style="margin:0">
+
+<div class="scene" aria-hidden="true">
+  <svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2b2333"/>
+        <stop offset="1" stop-color="#3b2c2b"/>
+      </linearGradient>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#0a1230"/>
+        <stop offset=".65" stop-color="#232552"/>
+        <stop offset="1" stop-color="#4a2f52"/>
+      </linearGradient>
+      <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#261b1b"/>
+        <stop offset="1" stop-color="#140f12"/>
+      </linearGradient>
+      <radialGradient id="moonGlow" cx="1210" cy="336" r="170" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#f3e3b5" stop-opacity=".35"/>
+        <stop offset="1" stop-color="#f3e3b5" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="dim" cx="1120" cy="560" r="1150" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#0c1220" stop-opacity=".3"/>
+        <stop offset=".5" stop-color="#0c1220" stop-opacity=".58"/>
+        <stop offset="1" stop-color="#0c1220" stop-opacity=".86"/>
+      </radialGradient>
+      <linearGradient id="dimLeft" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#0c1220" stop-opacity=".6"/>
+        <stop offset=".46" stop-color="#0c1220" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="dimBottom" x1="0" y1="0" x2="0" y2="1">
+        <stop offset=".62" stop-color="#0c1220" stop-opacity="0"/>
+        <stop offset="1" stop-color="#0c1220" stop-opacity=".88"/>
+      </linearGradient>
+      <!-- palm-frond ceiling between athl beams -->
+      <pattern id="fronds" width="14" height="72" patternUnits="userSpaceOnUse">
+        <rect width="14" height="72" fill="#1d1612"/>
+        <rect width="6" height="72" fill="#2a1f17"/>
+      </pattern>
+      <!-- the row of triangular vents under a Najdi ceiling -->
+      <pattern id="vents" x="20" width="56" height="44" patternUnits="userSpaceOnUse">
+        <polygon points="14,40 28,6 42,40" fill="#16121c"/>
+      </pattern>
+      <!-- Sadu weave band -->
+      <pattern id="sadu" width="40" height="24" patternUnits="userSpaceOnUse">
+        <rect width="40" height="24" fill="#2b0f14"/>
+        <polygon points="0,24 10,4 20,24" fill="#b8924f"/>
+        <polygon points="20,24 30,4 40,24" fill="#d9d0bd"/>
+        <polygon points="6,24 10,14 14,24" fill="#2b0f14"/>
+        <polygon points="26,24 30,14 34,24" fill="#7a2a30"/>
+      </pattern>
+      <!-- painted shutter boards -->
+      <pattern id="shutter" width="40" height="40" patternUnits="userSpaceOnUse">
+        <rect width="40" height="40" fill="#3f2a1d"/>
+        <polygon points="0,40 20,8 40,40" fill="#2f6f73" opacity=".7"/>
+        <polygon points="10,40 20,24 30,40" fill="#c9773f" opacity=".8"/>
+      </pattern>
+      <clipPath id="win"><rect x="950" y="284" width="340" height="306"/></clipPath>
+      <mask id="crescent">
+        <rect width="1920" height="1080" fill="#000"/>
+        <circle cx="1210" cy="336" r="34" fill="#fff"/>
+        <circle cx="1224" cy="326" r="30" fill="#000"/>
+      </mask>
+    </defs>
+
+    <!-- wall and ceiling -->
+    <rect width="1920" height="730" fill="url(#wall)"/>
+    <rect width="1920" height="72" fill="url(#fronds)"/>
+    <g fill="#3a2a1f">
+      <rect x="40" width="26" height="72"/><rect x="300" width="26" height="72"/><rect x="560" width="26" height="72"/>
+      <rect x="820" width="26" height="72"/><rect x="1080" width="26" height="72"/><rect x="1340" width="26" height="72"/>
+      <rect x="1600" width="26" height="72"/><rect x="1860" width="26" height="72"/>
+    </g>
+    <rect y="72" width="1920" height="10" fill="#4a3628"/>
+    <rect y="100" width="1920" height="44" fill="url(#vents)"/>
+
+    <!-- window with open painted shutters -->
+    <polygon points="850,276 930,264 930,610 850,598" fill="url(#shutter)" stroke="#2a1c14" stroke-width="4"/>
+    <polygon points="1310,264 1390,276 1390,598 1310,610" fill="url(#shutter)" stroke="#2a1c14" stroke-width="4"/>
+    <rect x="930" y="264" width="380" height="346" fill="#3b2a1e"/>
+    <g clip-path="url(#win)">
+      <rect x="950" y="284" width="340" height="306" fill="url(#sky)"/>
+      <circle cx="1210" cy="336" r="170" fill="url(#moonGlow)"/>
+      <rect x="950" y="284" width="340" height="306" fill="#f3e3b5" mask="url(#crescent)"/>
+      <g fill="#e9e4d8">
+        <circle cx="990" cy="310" r="1.8"/><circle cx="1040" cy="360" r="1.4"/><circle cx="1085" cy="302" r="2"/>
+        <circle cx="1140" cy="350" r="1.4"/><circle cx="1260" cy="380" r="1.8"/><circle cx="1020" cy="410" r="1.3"/>
+        <circle cx="1160" cy="330" r="1.5"/><circle cx="1270" cy="296" r="1.6"/>
+      </g>
+      <g fill="#060914">
+        <rect x="950" y="500" width="40" height="90"/><rect x="990" y="470" width="30" height="120"/>
+        <rect x="1020" y="520" width="50" height="70"/><rect x="1070" y="440" width="26" height="150"/>
+        <rect x="1096" y="500" width="44" height="90"/><rect x="1140" y="480" width="34" height="110"/>
+        <rect x="1174" y="530" width="40" height="60"/><rect x="1214" y="455" width="30" height="135"/>
+        <rect x="1244" y="510" width="46" height="80"/>
+      </g>
+      <g fill="#d8b26a" opacity=".6">
+        <rect x="1076" y="460" width="4" height="6"/><rect x="1076" y="480" width="4" height="6"/><rect x="1084" y="470" width="4" height="6"/>
+        <rect x="998" y="490" width="4" height="6"/><rect x="1150" y="500" width="4" height="6"/><rect x="1222" y="470" width="4" height="6"/>
+        <rect x="1222" y="500" width="4" height="6"/><rect x="1258" y="530" width="4" height="6"/><rect x="1030" y="540" width="4" height="6"/>
+        <rect x="1110" y="520" width="4" height="6"/>
+      </g>
+    </g>
+    <rect x="1117" y="284" width="6" height="306" fill="#3b2a1e"/>
+    <rect x="950" y="432" width="340" height="6" fill="#3b2a1e"/>
+    <rect x="920" y="606" width="400" height="14" fill="#4a3527"/>
+
+    <!-- floor, carpet and floor seating -->
+    <rect y="730" width="1920" height="350" fill="url(#floor)"/>
+    <polygon points="520,800 1720,800 1960,1080 280,1080" fill="#4a1a20"/>
+    <polygon points="556,814 1684,814 1912,1080 328,1080" fill="url(#sadu)"/>
+    <polygon points="590,836 1650,836 1866,1080 374,1080" fill="#561d24"/>
+    <g fill="#6f262c">
+      <rect x="40" y="616" width="196" height="84" rx="10"/><rect x="240" y="616" width="196" height="84" rx="10"/>
+      <rect x="440" y="616" width="196" height="84" rx="10"/><rect x="640" y="616" width="196" height="84" rx="10"/>
+      <rect x="840" y="616" width="196" height="84" rx="10"/><rect x="1040" y="616" width="196" height="84" rx="10"/>
+      <rect x="1240" y="616" width="196" height="84" rx="10"/><rect x="1440" y="616" width="196" height="84" rx="10"/>
+      <rect x="1640" y="616" width="196" height="84" rx="10"/>
+    </g>
+    <rect x="30" y="692" width="1860" height="72" rx="8" fill="#5e1e24"/>
+    <rect x="30" y="716" width="1860" height="20" fill="url(#sadu)"/>
+    <g fill="#86313a">
+      <rect x="40" y="650" width="58" height="96" rx="26"/><rect x="740" y="650" width="58" height="96" rx="26"/>
+      <rect x="1500" y="650" width="58" height="96" rx="26"/>
+    </g>
+
+    <!-- tray with a dallah and two finjans -->
+    <g transform="translate(960 868)">
+      <ellipse cx="0" cy="20" rx="120" ry="24" fill="#6b4d2b"/>
+      <ellipse cx="0" cy="18" rx="108" ry="19" fill="#7d5c34"/>
+      <path d="M-44 -18 C -70 -26, -78 -46, -92 -58 L -96 -54 C -84 -40, -70 -16, -46 -4 Z" fill="#b9914f"/>
+      <path d="M24 -36 C 52 -36, 52 4, 26 4" fill="none" stroke="#b9914f" stroke-width="6"/>
+      <path d="M-40 14 C -48 -16, -40 -36, -20 -44 L -16 -66 C -16 -76, 2 -76, 2 -66 L 6 -44 C 26 -36, 34 -16, 26 14 Z" fill="#c9a25e"/>
+      <circle cx="-7" cy="-80" r="6" fill="#c9a25e"/>
+      <polygon points="48,18 68,18 65,4 51,4" fill="#efe6d2"/>
+      <polygon points="76,20 96,20 93,6 79,6" fill="#efe6d2"/>
+    </g>
+
+    <!-- keep text readable -->
+    <rect width="1920" height="1080" fill="url(#dim)"/>
+    <rect width="1920" height="1080" fill="url(#dimLeft)"/>
+    <rect width="1920" height="1080" fill="url(#dimBottom)"/>
+  </svg>
+
+  <svg class="glow" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="lamp" cx="1180" cy="820" r="430" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#ffbf66" stop-opacity=".42"/>
+        <stop offset=".35" stop-color="#ff9a3d" stop-opacity=".14"/>
+        <stop offset="1" stop-color="#ff9a3d" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="1180" cy="820" r="430" fill="url(#lamp)"/>
+    <g transform="translate(1180 830)">
+      <rect x="-22" y="20" width="44" height="10" fill="#3a2a1f"/>
+      <rect x="-18" y="-40" width="36" height="62" fill="#ffd88a"/>
+      <rect x="-18" y="-40" width="36" height="62" fill="none" stroke="#3a2a1f" stroke-width="4"/>
+      <path d="M-6 -40 V22 M6 -40 V22" stroke="#3a2a1f" stroke-width="3"/>
+      <polygon points="-24,-40 0,-66 24,-40" fill="#3a2a1f"/>
+      <circle cx="0" cy="-72" r="6" fill="none" stroke="#3a2a1f" stroke-width="3"/>
+    </g>
+  </svg>
+</div>
+
+<main class="stage" id="stage" dir="rtl" lang="ar">
+  <section class="clock" aria-label="الوقت والتاريخ">
+    <div class="time" id="time">--:--</div>
+    <div class="dates">
+      <span id="dayName"></span>
+      <span class="hijri" id="hijri"></span>
+      <span id="greg"></span>
+    </div>
+  </section>
+
+  <section class="next" aria-live="polite">
+    <span class="eyebrow">الصلاة القادمة</span>
+    <span class="next-name" id="nextName">—</span>
+    <span class="next-count" id="nextCount"></span>
+    <span class="next-at" id="nextAt"></span>
+  </section>
+
+  <section class="prayers" id="prayers" aria-label="مواقيت الصلاة اليوم"></section>
+
+  <section class="club" aria-label="مباريات أرسنال القادمة">
+    <div class="club-head">
+      <h2 class="club-title">أرسنال</h2>
+      <span class="club-note">بتوقيت الرياض</span>
+    </div>
+    <div class="feature" id="feature"></div>
+    <ul class="list" id="list"></ul>
+    <footer class="foot">
+      <span>مواقيت الرياض حسب تقويم أم القرى</span>
+      <span>جدول المباريات محدّث في 20 أكتوبر 2026، وقد تتغير المواعيد</span>
+    </footer>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/adhan@4.4.3/lib/bundles/adhan.umd.min.js"></script>
+<script>
+(function () {
+  var TZ = "Asia/Riyadh";
+  var COORDS = { lat: 24.7136, lng: 46.6753 };
+
+  // Kickoffs in UTC. Source: club and league fixture lists, checked 20 Oct 2026.
+  var FIXTURES = [
+    { at: "2026-10-21T19:00:00Z", opp: "بايرن ميونخ",       home: false, comp: "دوري أبطال أوروبا" },
+    { at: "2026-10-24T14:00:00Z", opp: "إيفرتون",           home: true,  comp: "الدوري الإنجليزي" },
+    { at: "2026-10-27T20:00:00Z", opp: "فليتوود تاون",      home: false, comp: "كأس الرابطة" },
+    { at: "2026-11-01T16:30:00Z", opp: "ليفربول",           home: false, comp: "الدوري الإنجليزي" },
+    { at: "2026-11-04T20:00:00Z", opp: "سلافيا براغ",       home: false, comp: "دوري أبطال أوروبا" },
+    { at: "2026-11-07T15:00:00Z", opp: "هال سيتي",          home: true,  comp: "الدوري الإنجليزي" },
+    { at: "2026-11-21T17:30:00Z", opp: "نيوكاسل يونايتد",   home: false, comp: "الدوري الإنجليزي" },
+    { at: "2026-11-24T20:00:00Z", opp: "بوروسيا دورتموند",  home: true,  comp: "دوري أبطال أوروبا" },
+    { at: "2026-11-29T16:30:00Z", opp: "مانشستر سيتي",      home: true,  comp: "الدوري الإنجليزي" }
+  ];
+  var MATCH_LENGTH_MS = 115 * 60 * 1000;
+
+  var PRAYERS = [
+    { key: "fajr",    name: "الفجر" },
+    { key: "sunrise", name: "الشروق" },
+    { key: "dhuhr",   name: "الظهر" },
+    { key: "asr",     name: "العصر" },
+    { key: "maghrib", name: "المغرب" },
+    { key: "isha",    name: "العشاء" }
+  ];
+
+  function fmt(opts) {
+    try { return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", Object.assign({ timeZone: TZ }, opts)); }
+    catch (e) { return new Intl.DateTimeFormat("ar", Object.assign({ timeZone: TZ }, opts)); }
+  }
+  var fTime12 = fmt({ hour: "numeric", minute: "2-digit", hour12: true });
+  var fDay = fmt({ weekday: "long" });
+  var fGreg = fmt({ day: "numeric", month: "long", year: "numeric" });
+  var fDayMonth = fmt({ day: "numeric", month: "long" });
+  var fLongDay = fmt({ weekday: "long", day: "numeric", month: "long" });
+  var fParts = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  var fHijri = null, fHijriMonth = null;
+  try {
+    fHijri = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" });
+    fHijriMonth = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", { timeZone: TZ, month: "numeric" });
+  } catch (e) {}
+
+  function riyadhParts(d) {
+    var out = {};
+    fParts.formatToParts(d).forEach(function (p) { out[p.type] = p.value; });
+    return { y: +out.year, m: +out.month, d: +out.day, h: +out.hour % 24, mi: +out.minute, s: +out.second };
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function hm12(d) { return fTime12.format(d); }
+
+  function isRamadan(d) {
+    if (!fHijriMonth) return false;
+    try { return parseInt(fHijriMonth.format(d), 10) === 9; } catch (e) { return false; }
+  }
+
+  // Prayer times for a given Riyadh calendar day (offset in days from today).
+  var cache = {};
+  function timesFor(now, offsetDays) {
+    var p = riyadhParts(new Date(now.getTime() + offsetDays * 864e5));
+    var key = p.y + "-" + p.m + "-" + p.d;
+    if (cache[key]) return cache[key];
+    if (!window.adhan) return null;
+    var params = adhan.CalculationMethod.UmmAlQura();
+    var t = new adhan.PrayerTimes(new adhan.Coordinates(COORDS.lat, COORDS.lng), new Date(p.y, p.m - 1, p.d), params);
+    var res = { fajr: t.fajr, sunrise: t.sunrise, dhuhr: t.dhuhr, asr: t.asr, maghrib: t.maghrib, isha: t.isha };
+    if (isRamadan(t.dhuhr)) res.isha = new Date(t.maghrib.getTime() + 120 * 60000);
+    cache[key] = res;
+    return res;
+  }
+
+  function duration(ms, withSeconds) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return withSeconds ? h + ":" + pad(m) + ":" + pad(sec) : h + ":" + pad(m);
+  }
+  function humanUntil(ms) {
+    var mins = Math.round(ms / 60000);
+    var d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+    function unit(n, one, two, few, many) { return n === 1 ? one : n === 2 ? two : (n >= 3 && n <= 10 ? n + " " + few : n + " " + many); }
+    if (d > 0) return "بعد " + unit(d, "يوم", "يومين", "أيام", "يومًا") + (h ? " و" + unit(h, "ساعة", "ساعتين", "ساعات", "ساعة") : "");
+    if (h > 0) return "بعد " + unit(h, "ساعة", "ساعتين", "ساعات", "ساعة") + (m ? " و" + unit(m, "دقيقة", "دقيقتين", "دقائق", "دقيقة") : "");
+    return "بعد " + unit(Math.max(1, m), "دقيقة", "دقيقتين", "دقائق", "دقيقة");
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function renderClock(now) {
+    var p = riyadhParts(now);
+    $("time").innerHTML = (p.h % 12 || 12) + ":" + pad(p.mi) +
+      '<span class="side"><span class="sec">' + pad(p.s) + '</span><span class="ampm">' + (p.h < 12 ? "ص" : "م") + "</span></span>";
+    $("dayName").textContent = fDay.format(now);
+    $("greg").textContent = fGreg.format(now);
+    if (fHijri) { try { $("hijri").textContent = fHijri.format(now); } catch (e) {} }
+  }
+
+  function renderPrayers(now) {
+    var today = timesFor(now, 0);
+    if (!today) { $("nextName").textContent = "جارٍ التحميل"; return; }
+    var nextKey = null, nextTime = null;
+    for (var i = 0; i < PRAYERS.length; i++) {
+      var k = PRAYERS[i].key;
+      if (k === "sunrise") continue;
+      if (today[k] > now) { nextKey = k; nextTime = today[k]; break; }
+    }
+    if (!nextKey) { var tm = timesFor(now, 1); nextKey = "fajr"; nextTime = tm.fajr; }
+
+    var nextIsToday = today[nextKey] === nextTime;
+    var html = "";
+    PRAYERS.forEach(function (pr) {
+      var t = today[pr.key];
+      var cls = "p" + (pr.key === "sunrise" ? " sunrise" : "");
+      if (t <= now) cls += " past";
+      if (nextIsToday && pr.key === nextKey) cls += " is-next";
+      html += '<div class="' + cls + '"><span class="p-name">' + pr.name + '</span><span class="p-time">' + hm12(t) + "</span></div>";
+    });
+    $("prayers").innerHTML = html;
+
+    var name = PRAYERS.filter(function (x) { return x.key === nextKey; })[0].name;
+    $("nextName").textContent = name;
+    $("nextCount").textContent = duration(nextTime - now, true);
+    $("nextAt").textContent = (nextIsToday ? "اليوم " : "غدًا ") + "الساعة " + hm12(nextTime);
+  }
+
+  function renderMatches(now) {
+    var upcoming = FIXTURES
+      .map(function (f) { return Object.assign({ t: new Date(f.at) }, f); })
+      .filter(function (f) { return f.t.getTime() + MATCH_LENGTH_MS > now.getTime(); });
+
+    if (!upcoming.length) {
+      $("feature").innerHTML = '<p class="empty">انتهت المباريات المسجّلة في الجدول. يحتاج الجدول تحديثًا.</p>';
+      $("list").innerHTML = "";
+      return;
+    }
+
+    var f = upcoming[0];
+    var live = now >= f.t;
+    var teams = f.home
+      ? 'أرسنال<span class="vs">ضد</span>' + f.opp
+      : f.opp + '<span class="vs">ضد</span>أرسنال';
+    $("feature").innerHTML =
+      '<div class="f-comp"><span>' + f.comp + "</span>" +
+      '<span class="badge' + (live ? " live" : "") + '">' + (live ? "جارية الآن" : (f.home ? "على أرضه" : "خارج أرضه")) + "</span></div>" +
+      '<div class="f-teams">' + teams + "</div>" +
+      '<div class="f-when">' + fLongDay.format(f.t) + " · " + hm12(f.t) + "</div>" +
+      (live ? "" : '<div class="f-count">' + humanUntil(f.t - now) + "</div>");
+
+    $("list").innerHTML = upcoming.slice(1, 5).map(function (m) {
+      return '<li class="row">' +
+        '<span class="r-date"><b>' + fDay.format(m.t) + "</b>" + fDayMonth.format(m.t) + "</span>" +
+        '<span class="r-match">' + m.opp + '<span class="ha">' + (m.home ? "على أرضه" : "خارج أرضه") + '</span><span class="r-comp">' + m.comp + "</span></span>" +
+        '<span class="r-time">' + hm12(m.t) + "</span></li>";
+    }).join("");
+  }
+
+  var lastMinute = -1;
+  function tick() {
+    var now = new Date();
+    renderClock(now);
+    renderPrayers(now);
+    var p = riyadhParts(now);
+    if (p.mi !== lastMinute) { lastMinute = p.mi; renderMatches(now); }
+  }
+
+  // Small drift every few minutes so static elements don't sit on the same pixels for hours.
+  function drift() {
+    var x = Math.round((Math.random() - .5) * 24), y = Math.round((Math.random() - .5) * 16);
+    $("stage").style.transform = "translate(" + x + "px," + y + "px)";
+  }
+
+  // Reload once a day around 3 a.m. Riyadh time to pick up an updated fixture list.
+  function scheduleReload() {
+    setInterval(function () {
+      var p = riyadhParts(new Date());
+      if (p.h === 3 && p.mi === 0) { try { location.reload(); } catch (e) {} }
+    }, 60000);
+  }
+
+  tick();
+  setInterval(tick, 1000);
+  if (!window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setInterval(drift, 180000);
+  scheduleReload();
+  if (!window.adhan) {
+    var tries = 0;
+    var wait = setInterval(function () { tries++; if (window.adhan || tries > 20) { clearInterval(wait); tick(); } }, 500);
+  }
+})();
+</script>
+</body>
+</html>
